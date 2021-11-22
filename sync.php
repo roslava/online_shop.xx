@@ -14,20 +14,14 @@ require("db.php");
 $ch = curl_init('http://185.125.216.212/sync.json');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 $res = curl_exec($ch);
-echo "<h2>Продукты с сервера (строка)</h2>";
-var_dump($res);
-echo "<hr>";
+
 
 //json-строку конвертирую в массив
 $actual_products = json_decode($res, true);
-echo "<h2>Продукты с сервера (массив)</h2>";
-var_dump($actual_products);
-echo "<hr>";
 
 
-
-//Получаю все товары из базы данных в виде ассоциативного массива
-
+//Получаю все товары из базы данных в виде ассоциативного массива (для просмотра)
+echo "<h2>Состояние таблицы products</h2>";
     $query = $pdo->query('SELECT * FROM products');
     $products = $query->fetchAll();
     echo "<h2>Продукты из базы данных</h2>";
@@ -35,68 +29,35 @@ echo "<hr>";
     echo "<hr>";
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-////перебираю id $actual_products (актуальные товары с сервера)
+//перебираю массив $actual_products (актуальные товары с сервера)
 foreach ($actual_products as $a_product) {
-    if(checkId($a_product['id'], $products)){
-        echo "Продуктс ID: " . $a_product['id']. " существует — АПДЕЙТ! <br>";
 
-    }else{
-        echo "Продуктс ID: " . $a_product['id']. " не существует — ДОБАВИТЬ! <br>";
-        insertProduct($a_product, $pdo);
-
-
-        //Получаю все товары из базы данных в виде ассоциативного массива
-        $query = $pdo->query('SELECT * FROM products');
-        $products = $query->fetchAll();
-        echo "<h2>Продукты из базы данных</h2>";
-        var_dump($products);
-        echo "<hr>";
-
-
+    $stmt = $pdo->prepare('SELECT * FROM products WHERE external_id =:external_id');
+    $stmt->bindValue(':external_id', $a_product["id"], PDO::PARAM_STR);
+    $stmt->execute();
+    if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+        $stmt = $pdo->prepare('UPDATE products SET name =:name, description =:description, price =:price, img =:img, updation_date =:updation_date WHERE external_id = :external_id');
+        $stmt->bindValue(':name', $a_product["name"], PDO::PARAM_STR);
+        $stmt->bindValue(':description', $a_product["description"], PDO::PARAM_STR);
+        $stmt->bindValue(':price', $a_product["price"], PDO::PARAM_STR);
+        array_key_exists('img', $a_product) ? $stmt->bindValue(':img', $a_product["img"], PDO::PARAM_STR) : $stmt->bindValue(':img', NULL, PDO::PARAM_STR); //в json нет поля img
+        $stmt->bindValue(':external_id', $a_product["id"], PDO::PARAM_STR);
+        $stmt->bindValue(':updation_date', date('Y-m-d H:i:s'), PDO::PARAM_STR);
+        $stmt->execute();
     }
+    else {
+        $data = [
+            'name' => $a_product["name"],
+            'description' => $a_product["description"],
+            'price' => $a_product["price"],
+            'img' => '...',
+            'external_id' => $a_product["id"],
+            'creation_date' => date('Y-m-d H:i:s'),
+            'updation_date' => date('Y-m-d H:i:s')
+         ];
 
-
-}
-
-
-function checkId($a_product_id, $products){
-    foreach ($products as $product){
-        if( $product["external_id"] == $a_product_id ){
-
-            return true;
-        }else{
-
-            return false;
-        }
+        $sql = "INSERT INTO products (name, description, price,img,external_id,creation_date,updation_date) VALUES (:name, :description, :price, :img, :external_id, :creation_date, :updation_date)";
+        $stmt= $pdo->prepare($sql);
+        $stmt->execute($data);
     }
 }
-
-
-function insertProduct($a_product, $pdo){
-    $sql = "INSERT INTO products (name, description, price, img, external_id, creation_date, updation_date) VALUES (?,?,?,?,?,?,?)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        $a_product['name'],
-        $a_product['description'],
-        $a_product['price'],
-        'img',
-        $a_product['id'],
-        date('Y-m-d H:i:s'),
-        date('Y-m-d H:i:s')]);
-
-}
-

@@ -1,18 +1,10 @@
 <?php
-var_dump("Hi!");
-
-
 require("db.php");
 
-
-
 $query = $pdo ->query('SELECT * FROM products');
-//var_dump($pdo);
 
-//var_dump($query->fetchAll());
 $products = $query->fetchAll();
-var_dump($products);
-
+//var_dump($products);
 
 foreach ($products as $product){
 
